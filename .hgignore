@@ -1,0 +1,16 @@
+syntax: glob
+
+*jar
+*out
+._*
+.DS_Store
+*.pyc
+*~
+#*#
+*.pickle
+*log
+*gz
+*faa
+*fasta
+*tsv
+*db

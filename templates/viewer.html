@@ -1,0 +1,146 @@
+<html>
+
+<head>
+<style type="text/css" media="screen">
+.shadow {	-webkit-box-shadow:3px 0px 3px #797979; box-shadow:3px 0px 3px #797979; }
+.p { background-color: rgb(247, 130, 134); }
+.o { background-color: rgb(247, 146, 73); }
+.r { background-color: rgb(247, 20, 0); }
+.c { background-color: rgb(16, 166, 166); }
+.m { background-color: rgb(199, 73, 199); }
+.b { background-color: rgb(134, 162, 247); }
+.g { background-color: rgb(16, 195, 16); }
+.y { background-color: rgb(199, 195, 0); }
+
+.hd1 { width: 36px; float:left; }
+.hd2 { width: 45px; float:left; }
+
+/*
+.aa { font-weight:bold; text-decoration:underline }
+.ab { text-decoration:underline }
+.ac { text-decoration:underline }
+.ad { font-weight:bold; text-decoration:underline }
+.ae { text-decoration:underline }
+.af { text-decoration:underline }
+.ag { text-decoration:underline }
+*/
+
+.aa { opacity: 0.7398; font-weight:bold; text-decoration:underline }
+.ab { opacity: 0.2208;  }
+.ac { opacity: 0.2778;  }
+.ad { opacity: 0.7119;  font-weight:bold; }
+.ae { opacity: 0.5544;  }
+.af { opacity: 0.159;  }
+.ag { opacity: 0.5673;  }
+
+.alignment { font-family: Consolas,'Lucida Sans Typewriter','Courier New',monospace;line-height:105%; }
+
+#topleft { position:fixed;overflow: hidden;height:1.4em;width:20em;left:0px;top:0px;background:white;z-index:2;padding:0.3em 0;text-align:right }
+#toggle_species { padding: 0.3 em;}
+#firstrow { position:fixed;overflow: hidden;height:1.4em;left:20em;top:0px;background:white;z-index:1;padding:0.3em 0; }
+#firstcol { position:fixed;overflow: hidden;height:100%;left:0px;top:2em;background:white;z-index:1;padding:0px 5px }
+#speciescol { position:fixed;overflow: hidden;height:100%;left:20em;top:2em;background:white;z-index:1;padding:0px 5px;display:none; }
+#table_div { position:absolute;left:20em;top:2em;white-space:nowrap; }
+</style>
+<script src="http://code.jquery.com/jquery-1.5.min.js"></script>
+<!-- <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.6/jquery-ui.min.js"></script> -->
+<script>
+
+var ls = 0;
+var lt = 0;
+
+//function to support scrolling of title and first column
+fnScroll = function(){
+  var sl = $(window).scrollLeft();
+  if (sl > 0 && ls == 0) { $('#firstcol').addClass("shadow"); $('#speciescol').addClass("shadow");  ls = 1; }
+  if (sl == 0 && ls > 0) { $('#firstcol').removeClass("shadow"); $('#speciescol').removeClass("shadow"); ls = 0; }
+
+  var st = $(window).scrollTop();
+  if (st > 0 && lt == 0) { $('#firstrow').addClass("shadow"); lt = 1; }
+  if (st == 0 && lt > 0) { $('#firstrow').removeClass("shadow"); lt = 0; }
+
+  var offset = $('#table_div').offset();
+  offset.top = st;
+  $('#firstrow').offset(offset);
+  offset = $('#table_div').offset();
+  offset.left = sl;
+  $('#firstcol').offset(offset);
+	offset.left += $('#firstcol').outerWidth();
+	$('#speciescol').offset(offset);
+};
+
+fnShiftBody = function() {
+	var fw = $("#firstcol").outerWidth();
+
+	var elements = [$("#speciescol"), $('#firstrow'), $('#table_div')];
+	for (var i in elements)
+	{
+		var el = elements[i];
+	  var offset = el.offset();
+		offset.left = fw;
+	  el.offset(offset);
+	
+	  if (i == 0)
+	  {
+			if ( $("#speciescol").is(":visible") ) fw += $("#speciescol").outerWidth();
+	  }
+	}
+
+  $("#topleft").width(fw);
+
+	fnScroll();
+}
+
+fnSetHeaderCSS = function() {
+  var w = $("#table_div").width() / {{ ncols }};
+  $(".hd1").width(4*w);
+  $(".hd2").width(5*w);
+  $("#firstcol").height($("#table_div").height());
+  $("#speciescol").height($("#table_div").height());
+	fnShiftBody();
+};
+
+showSpecies = function() {
+	$("#speciescol").show();
+	$("#toggle_species").text("Hide species").click( hideSpecies );
+	fnShiftBody();
+}
+
+hideSpecies = function() {
+	$("#speciescol").hide();
+	$("#toggle_species").text("Show species").click( showSpecies );
+	fnShiftBody();
+}
+
+$(document).ready(function(){
+  $(window).scroll(fnScroll);
+  fnSetHeaderCSS();
+  $("#table_div").resize( fnSetHeaderCSS );
+	hideSpecies();
+});
+
+
+</script>
+</head>
+
+<body>
+	
+<div class="alignment">
+	<div id="topleft"><span id="toggle_species"></span></div>
+	<div id="firstrow">
+		{{ table_first_row|safe }}
+	</div>
+	<div id="firstcol">
+	  {{ table_first_col|safe }}
+	</div>
+	<div id="speciescol">
+	  {{ species_col|safe }}
+	</div>
+	<div id="table_div">
+			{{ table_body|safe }}
+	</div>
+</div> 
+
+</body>
+
+</html>
