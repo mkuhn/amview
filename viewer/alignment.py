@@ -9,6 +9,7 @@ import re
 
 from collections import defaultdict
 
+## The Clustal color scheme, as shown on http://ekhidna.biocenter.helsinki.fi/pfam2/clustal_colours
 _rules = """
 blue
     (W,L,V,I,M,F): {50%, p}{60%, wlvimafcyhp}
@@ -34,6 +35,9 @@ yellow
     (P): {always}
 """
 
+## convert the above rules into a dictionary of functions that
+## check how often amino acids occur in a given amino acid set
+
 def get_check(aa_set):
     """
     >>> get_check("a")("abac")
@@ -50,7 +54,6 @@ def get_check(aa_set):
 
 rules = defaultdict(list)
 aa_sets = {}
-
 
 for line in _rules.split("\n"):
     if not line or line.startswith("#"): continue

@@ -1,22 +1,56 @@
+from __future__ import division
+
 import django.shortcuts
 
+import os
 import sys
 
-import Bio
-from Bio import SeqIO
+import itertools
 
 from collections import defaultdict
 
 import amview.viewer.alignment as alignment
+import settings
 
 import newick
 import Taxonomy
 
+import urllib
+    
 from sqlalchemy import create_engine
 
 tax = Taxonomy.Taxonomy(create_engine('sqlite:///ncbi_taxonomy.db'), Taxonomy.ncbi.ranks)
 
+class Record(object):
+    """Thin clone of BioPython's Sequence record"""
+    def __init__(self, identifier, seq):
+        self.id = identifier
+        self.seq = seq
+
+def parseFasta(fh):
+    """A function to extract sequence records from a FASTA file to avoid a BioPython dependency."""
+    
+    record_seq = []
+    
+    for line in fh:
+        line = line.strip("\n")
+        
+        if line.startswith(">"):
+            
+            if record_seq: 
+                yield Record(record_id, "".join(record_seq))
+            
+            record_id = line[1:].split()[0]
+            record_seq = []
+        else:
+            record_seq.append(line)
+
+    if record_seq: 
+        yield Record(record_id, "".join(record_seq))
+        
+
 class CollectLeafs(newick.tree.TreeVisitor):
+    """Newick tree visitor that projects a tree onto a list with human at the top."""
     
     def __init__(self):
         self.leafs = [[]]
@@ -39,7 +73,9 @@ class CollectLeafs(newick.tree.TreeVisitor):
         return self.leafs[0]
     
 
-def index(request):
+def index(request, path):
+    
+    assert path.endswith("/")
     
     first_col = []
     species_col = []
@@ -49,77 +85,187 @@ def index(request):
     rows = []    
     
     _anns = {}
-    # for record in SeqIO.parse(open("examples/kif2c_coils.fasta"), "fasta"):
-    #     _anns[record.id] = record.seq
+    
+    # try to load all annotation files
+    for filename in settings.ANNOTATION_FILES:
 
-    # for line in open("/Volumes/cellapps.biotec.tu-dresden.de/data/cellnet/michaelk/data/ccaligner/projects/T07C4.10/full.pc.tsv"): 
-    # for line in open("/Volumes/cellapps.biotec.tu-dresden.de/data/cellnet/michaelk/data/ccaligner/projects/sas-4/pruned.pc.tsv"): 
-    for line in open("/Volumes/cellapps.biotec.tu-dresden.de/data/cellnet/michaelk/data/ccaligner/projects/spd-5/amview/full.pc.tsv"): 
-    # for line in open("examples/pcm1.tsv"):
-        line = line.strip()
-        if not line: continue
-        if line.startswith(">"):
-            l = []
-            _anns[ line[1:] ] = l
-        else:
-            (_, register, pvalue) = line.split("\t")
-            if float(pvalue) > 0.1: register = "-"
-            l.append(register)
+        filename = settings.ALIGNMENT_PATH + path + filename
+        if not os.path.exists(filename): continue
+        
+        for line in open(filename):
+            line = line.strip()
+            if not line: continue
+            if line.startswith(">"):
+                l = []
+                _anns[ line[1:] ] = l
+            else:
+                if "\t" in line:
+                    (_, register, pvalue) = line.split("\t")
+                    if float(pvalue) > 0.1: register = "-"
+                    l.append(register)
+                else:
+                    l.extend(line)
 
     anns = []
 
     items_per_species = defaultdict(list)
 
-    # for record in SeqIO.parse(open("/Users/mkuhn/Desktop/spd-5/spd5_aligned.faa"), "fasta"):
-    # for record in SeqIO.parse(open("/Volumes/cellapps.biotec.tu-dresden.de/data/cellnet/michaelk/data/ccaligner/projects/T07C4.10/full.faa.best"), "fasta"):
-    for record in SeqIO.parse(open("/Volumes/cellapps.biotec.tu-dresden.de/data/cellnet/michaelk/data/ccaligner/projects/spd-5/amview/full.faa.best"), "fasta"):
-    # for record in SeqIO.parse(open("/Volumes/cellapps.biotec.tu-dresden.de/data/cellnet/michaelk/data/ccaligner/projects/sas-4/pruned.faa.best"), "fasta"):
-    # for record in SeqIO.parse(open("/Volumes/cellapps.biotec.tu-dresden.de/data/cellnet/michaelk/data/ccaligner/projects/CEP290/full.faa.best"), "fasta"):
-    # for record in SeqIO.parse(open("examples/pcm1_metazoa.faa"), "fasta"):
-        species = record.id.split(".", 1)[0]
-        items_per_species[species].append(record)
-        
+    # load only one multiple alignment
+    for filename in settings.ALIGNMENT_FILES:
 
-    species_tree = tax.tree_lineage(items_per_species.keys())
+        filename = settings.ALIGNMENT_PATH + path + filename
+        if not os.path.exists(filename): continue
+        
+        for record in parseFasta(open(filename)):
+            if "." in record.id:
+                species = record.id.split(".", 1)[0]
+                items_per_species[species].append(record)
+            else:
+                items_per_species[""].append(record)
+            
+        break
+        
+    else:
+        print >> sys.stderr, "Not found", filename
+        
+        
+    assert items_per_species
+    species_tree = tax.tree_lineage( k for k in items_per_species.keys() if k )
     
     # go through tree and collect leaf identifiers
     
-    tv = CollectLeafs()
-    species_tree.dfs_traverse(tv)
+    species_list = []
+    
+    if not all( s == "" for s in items_per_species.keys() ):
+        tv = CollectLeafs()
+        species_tree.dfs_traverse(tv)
+        species_list.extend(tv.get_leafs())
+    
+    species_list.append("")
 
-    for species in tv.get_leafs():
+    record_ids = []
+
+    for species in species_list:
         
         for record in items_per_species[species]:
+            record_ids.append(record.id)
             first_col.append("""%s<br />""" % record.id)
-            _species = tax.primary_from_id(species)
-            species_col.append("""<a href="http://en.wikipedia.org/wiki/Special:Search?search=%s" target="_blank">%s</a><br />""" % (_species,_species))
-            anns.append(_anns[record.id])
+            if species:
+                _species = tax.primary_from_id(species)
+                __species = urllib.quote(_species)
+                species_col.append("""<a href="http://en.wikipedia.org/wiki/Special:Search?search=%s" target="_blank">%s</a><br />""" % (__species,_species))
+            if record.id in _anns: 
+                anns.append(_anns[record.id])
+            else:
+                anns.append(None)
             sequences.append(record.seq)
             rows.append([])
         
     ann_position = [0]*len(sequences)
+    
+    domain_annotations = {}
+    domain_annotations["6239.F56A3.4"] = (
+        ("air-1", "lightblue", 805//3, 1410//3),
+        ("spd-2", "lightgreen", 604//3, 1008//3),
+        ("rsa-2", "lightcoral", 1207//3, 1410//3),
         
+        ("S", "red", 25 ,25 ),
+        ("S", "red", 201,201),
+        ("S", "red", 387,387),
+        ("S", "red", 530,530),
+        ("S", "red", 635,635),
+        ("S", "red", 649,649),
+        ("S", "red", 658,658),
+        ("S", "red", 667,667),
+        ("S", "red", 697,697),
+        ("S", "red", 736,736),
+    )
+    
+    annotation_rows = defaultdict(list)
+    active_rows = defaultdict(dict)
+    
     for x in range(len(sequences[0])):
+
         aa = "".join(sequence[x] for sequence in sequences)
         colors = alignment.assign_colors(aa)
             
         for y,(row,a,c) in enumerate(zip(rows,aa,colors)):
             
-            classes = []
+            record_id = record_ids[y]
+            current_ann_position = ann_position[y]
             
+            for domain_id, (domain_name, domain_color, domain_start, domain_end) in enumerate(domain_annotations.get( record_id, () )):
+                
+                domain_padding_end = domain_end + 5
+                
+                if domain_start <= current_ann_position <= domain_padding_end:
+
+                    if domain_id not in active_rows[record_id]:
+                        ## find a new inactive row
+                        for current_row in range(0, len(active_rows[record_id])+1):
+                            if current_row not in active_rows[record_id].values(): break
+                        active_rows[record_id][domain_id] = current_row
+                    else:
+                        current_row = active_rows[record_id][domain_id]
+                    
+                    # NOTE: this will truncate the name if it's longer than the domain (plus padding)
+                    # NOTE: this ignores gaps
+                    
+                    offset = current_ann_position - domain_start
+                    cell = []
+                    
+                    if a != "-":
+                        if offset == 0:
+                            # add new row, if needed
+                            if current_row >= len(annotation_rows[record_id]):
+                                assert current_row == len(annotation_rows[record_id])
+                                annotation_rows[record_id].append([])
+                            
+                            # add padding to get the starting position right
+                            if len(annotation_rows[record_id][current_row]) < (x-1):
+                                annotation_rows[record_id][current_row].extend( ["&nbsp;"] * (x - len(annotation_rows[record_id][current_row]) -1) )
+                                
+                            cell.append("<span style='background-color: %s'>" % domain_color)
+                        
+                        # print name or fill with space
+                        if offset < len(domain_name):
+                            cell.append(domain_name[offset])
+                        else:
+                            cell.append("&nbsp;")
+                        
+                        # close the span at the domain end
+                        if current_ann_position == domain_end:
+                            cell.append("</span>")
+                        
+                        # give back the active row
+                        if current_ann_position == domain_padding_end:
+                            active_rows[record_id].pop(domain_id)
+                            
+                    elif offset > 0:
+                        cell.append("&nbsp;")
+                    
+                    if cell:
+                        annotation_rows[record_id][current_row].append("".join(cell))
+                            
+            classes = []
             if c: classes.append(c[0])
             
             if a != "-":
-                ann = anns[y][ann_position[y]]
-                if ann not in (".-"): classes.append("a"+ann)
-                ann_position[y] += 1
+                if anns[y] is not None:
+                    ann = anns[y][current_ann_position]
+                    if ann not in (".-"): classes.append("a"+ann)
+                    ann_position[y] += 1
             
             if classes:
                 row.append("<span class='%s'>%s</span>" % (" ".join(classes),a))
             else:
                 row.append(a)
                 # row.append("<td>%s</td>" % (a,))
-
+    
+    for record_id in record_ids:
+        for annotation_row in annotation_rows.get(record_id, ()):
+            rows.append(annotation_row)
+                
     for row in rows:
         body.append("".join(row)+"<br/>\n")
         # body.append("<tr>"+"".join(row)+"</tr>\n")

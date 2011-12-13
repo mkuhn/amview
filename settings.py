@@ -1,5 +1,7 @@
 # Django settings for amview project.
 
+import os
+
 DEBUG = True
 TEMPLATE_DEBUG = DEBUG
 
@@ -69,7 +71,7 @@ TEMPLATE_DIRS = (
     # Put strings here, like "/home/html/django_templates" or "C:/www/django/templates".
     # Always use forward slashes, even on Windows.
     # Don't forget to use absolute paths, not relative paths.
-    "/Users/mkuhn/Dropbox/src/amview/templates",
+    os.getcwd()+"/templates/",
 )
 
 INSTALLED_APPS = (
@@ -79,3 +81,19 @@ INSTALLED_APPS = (
     'django.contrib.sites',
     'amview.viewer'
 )
+
+
+## amView configuration:
+
+# Base path of alignments, all alignments need to be below this path
+ALIGNMENT_PATH = os.getcwd()+"/examples/"
+
+# How are the alignment and annotation files called? 
+# When the user specifies a directory (URL ending in "/"), these filenames
+# will be checked and loaded if they're there. 
+ALIGNMENT_FILES = ("alignment.fa",)
+ANNOTATION_FILES = ("paircoil.fa",)
+
+## Load local settings that don't belong in revision control:
+## TEMPLATE_DIRS, ALIGNMENT_PATH, ALIGNMENT_FILES, ANNOTATION_FILES
+execfile("local_settings.py") 

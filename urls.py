@@ -14,5 +14,6 @@ urlpatterns = patterns('',
 
     # Uncomment the next line to enable the admin:
     # (r'^admin/', include(admin.site.urls)),
-    (r"", "viewer.views.index"),
+    (r"^favicon.ico", "page_not_found"),
+    (r"^(?P<path>.+/)", "viewer.views.index"),
 )
