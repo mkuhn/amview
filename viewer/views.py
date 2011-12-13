@@ -77,6 +77,8 @@ def index(request, path):
     
     assert path.endswith("/")
     
+    min_rows = int(request.REQUEST.get("min_rows", 0))
+    
     first_col = []
     species_col = []
     body = []
@@ -183,10 +185,14 @@ def index(request, path):
     
     annotation_rows = defaultdict(list)
     active_rows = defaultdict(dict)
+
     
     for x in range(len(sequences[0])):
 
         aa = "".join(sequence[x] for sequence in sequences)
+        
+        if min_rows > 0 and len(aa) - aa.count("-") < min_rows: continue
+        
         colors = alignment.assign_colors(aa)
             
         for y,(row,a,c) in enumerate(zip(rows,aa,colors)):
