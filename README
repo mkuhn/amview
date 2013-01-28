@@ -1,0 +1,12 @@
+
+REQUIREMENTS
+============
+
+You need to install:
+
+- Python 2.7
+- Django
+- SQLAlchemy
+- Newick: https://bitbucket.org/mkuhn/newick
+- NCBI Taxononmy: https://bitbucket.org/mkuhn/taxonomy
+
