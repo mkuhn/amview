@@ -34,6 +34,7 @@
 .ae { opacity: 0.5544;  }
 .af { opacity: 0.159;  }
 .ag { opacity: 0.5673;  }
+.aP { color: magenta;  }
 
 .alignment { font-family: Consolas,'Lucida Sans Typewriter','Courier New',monospace;line-height:105%; }
 
@@ -80,7 +81,7 @@ fnShiftBody = function() {
 	  var offset = el.offset();
 		offset.left = fw;
 	  el.offset(offset);
-	
+
 	  if (i == 0)
 	  {
 			if ( $("#speciescol").is(":visible") ) fw += $("#speciescol").outerWidth();
@@ -125,7 +126,7 @@ $(document).ready(function(){
 </head>
 
 <body>
-	
+
 <div class="alignment">
 	<div id="topleft"><span id="toggle_species"></span></div>
 	<div id="firstrow">
@@ -140,7 +141,7 @@ $(document).ready(function(){
 	<div id="table_div">
 			{{ table_body|safe }}
 	</div>
-</div> 
+</div>
 
 </body>
 

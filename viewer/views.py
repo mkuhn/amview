@@ -77,7 +77,7 @@ def index(request, path):
     assert path.endswith("/")
 
     min_rows = int(request.REQUEST.get("min_rows", 0))
-    svg = int(request.REQUEST.get("min_rows", 0))
+    svg = int(request.REQUEST.get("svg", 0))
 
     first_col = []
     species_col = []
@@ -86,7 +86,7 @@ def index(request, path):
     sequences = []
     rows = []
 
-    _anns = {}
+    _residue_annotations = defaultdict(list)
 
     # try to load all annotation files
     for filename in settings.ANNOTATION_FILES:
@@ -94,21 +94,11 @@ def index(request, path):
         filename = settings.ALIGNMENT_PATH + path + filename
         if not os.path.exists(filename): continue
 
-        for line in open(filename):
-            line = line.strip()
-            if not line: continue
-            if line.startswith(">"):
-                l = []
-                _anns[ line[1:] ] = l
-            else:
-                if "\t" in line:
-                    (_, register, pvalue) = line.split("\t")
-                    if float(pvalue) > 0.1: register = "-"
-                    l.append(register)
-                else:
-                    l.extend(line)
+        if "gps.txt" in filename:
+            load_gps_annotation_file(_residue_annotations, filename)
+        else:
+            load_standard_annotation_file(_residue_annotations, filename)
 
-    anns = []
 
     items_per_species = defaultdict(list)
 
@@ -145,6 +135,7 @@ def index(request, path):
 
     species_list.append("")
 
+    residue_annotations = []
     record_ids = []
 
     for species in species_list:
@@ -157,10 +148,10 @@ def index(request, path):
                 _species = tax.primary_from_id(species)
                 __species = urllib.quote(_species)
                 species_col.append("""<a href="http://en.wikipedia.org/wiki/Special:Search?search=%s" target="_blank">%s</a><br />""" % (__species,_species))
-            if record.id in _anns:
-                anns.append(_anns[record.id])
+            if record.id in _residue_annotations:
+                residue_annotations.append(_residue_annotations[record.id])
             else:
-                anns.append(None)
+                residue_annotations.append(None)
             sequences.append(record.seq)
             rows.append([])
 
@@ -171,7 +162,6 @@ def index(request, path):
         ("air-1", "lightblue", 805//3, 1410//3),
         ("spd-2", "lightgreen", 604//3, 1008//3),
         ("rsa-2", "lightcoral", 1207//3, 1410//3),
-
         ("S", "red", 25 ,25 ),
         ("S", "red", 201,201),
         ("S", "red", 387,387),
@@ -185,9 +175,9 @@ def index(request, path):
     )
 
     if svg:
-        render_svg_alignment(body, rows, domain_annotations, min_rows, record_ids, anns, sequences, ann_position)
+        render_svg_alignment(body, rows, domain_annotations, min_rows, record_ids, residue_annotations, sequences, ann_position)
     else:
-        render_text_alignment(body, rows, domain_annotations, min_rows, record_ids, anns, sequences, ann_position)
+        render_text_alignment(body, rows, domain_annotations, min_rows, record_ids, residue_annotations, sequences, ann_position)
 
     ncols = len(rows[0])
 
@@ -201,6 +191,39 @@ def index(request, path):
 
     return django.shortcuts.render_to_response('viewer.html', locals())
 
+def load_gps_annotation_file(_residue_annotations, filename):
+
+    fh_in = open(filename)
+    fh_in.next()
+
+    for line in fh_in:
+        line = line.strip()
+        if not line: continue
+        if line.startswith(">"):
+            l = defaultdict(lambda : "-")
+            _residue_annotations[ line[1:] ].append(l)
+        else:
+            # 36      LDVISDTSGLGNGVL 2.681   2.59    Phosphorylation
+            (residue, _, score, _, _) = line.split("\t")
+            if float(score) > 4:
+                l[int(residue)-1] = "P"
+
+def load_standard_annotation_file(_residue_annotations, filename):
+
+    for line in open(filename):
+        line = line.strip()
+        if not line: continue
+        if line.startswith(">"):
+            l = []
+            _residue_annotations[ line[1:] ].append(l)
+        else:
+            if "\t" in line:
+                (_, register, pvalue) = line.split("\t")
+                if float(pvalue) > 0.1: register = "-"
+                l.append(register)
+            else:
+                l.extend(line)
+
 def getSVG(element, a, b):
 
     s = "stroke:rgb(0,0,0);stroke-width:2"
@@ -208,12 +231,18 @@ def getSVG(element, a, b):
     if element == "CC":
         s = "stroke:rgb(0,185,0);stroke-width:6"
 
+    elif element == "P":
+        assert a == b
+        return """<path d ="M %d 6 L %d 1 L %d 1" fill="rgb(255,0,255)"/>""" % (a,a-5,a+5)
+
     return """<line x1="%d" y1="5" x2="%d" y2="5" style="%s"/>""" % (a,b,s)
 
 
-def render_svg_alignment(body, rows, domain_annotations, min_rows, record_ids, anns, sequences, ann_position):
+def render_svg_alignment(body, rows, domain_annotations, min_rows, record_ids, residue_annotations, sequences, ann_position):
 
     element_per_row = {}
+
+    draw_on_top_rows = [ [] for _ in rows ]
 
     for x in range(max(len(sequence) for sequence in sequences)):
 
@@ -221,7 +250,7 @@ def render_svg_alignment(body, rows, domain_annotations, min_rows, record_ids, a
 
         if min_rows > 0 and len(aa) - aa.count("-") < min_rows: continue
 
-        for y,(row,a) in enumerate(zip(rows,aa)):
+        for y,(row,draw_on_top,a) in enumerate(zip(rows,draw_on_top_rows,aa)):
 
             current_ann_position = ann_position[y]
 
@@ -231,11 +260,15 @@ def render_svg_alignment(body, rows, domain_annotations, min_rows, record_ids, a
 
             if a != "-":
                 current_element = "x"
-                ann = anns[y][current_ann_position]
-                if ann is not None:
-                    if ann in "abcdefg":
-                        current_element = "CC"
-                    ann_position[y] += 1
+                for annotations in residue_annotations[y]:
+                    ann = annotations[current_ann_position]
+                    if ann is not None:
+                        if ann in "abcdefg":
+                            current_element = "CC"
+                        if ann == "P":
+                            draw_on_top.append( getSVG("P", x-1, x-1))
+
+                ann_position[y] += 1
 
             if current_element != last_element:
                 if last_element is not None:
@@ -244,15 +277,16 @@ def render_svg_alignment(body, rows, domain_annotations, min_rows, record_ids, a
 
 
 
-    for row in rows:
-        body.append("""<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width=500 height=10 viewBox="0 0 %d 10" preserveAspectRatio="none">""" % x)
+    for row, draw_on_top in zip(rows, draw_on_top_rows):
+        body.append("""<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width=800 height=10 viewBox="0 0 %d 10" preserveAspectRatio="none">""" % x)
         body.append("".join(row))
+        body.append("".join(draw_on_top))
         body.append("""</svg><br/>\n""")
 
 
 
 
-def render_text_alignment(body, rows, domain_annotations, min_rows, record_ids, anns, sequences, ann_position):
+def render_text_alignment(body, rows, domain_annotations, min_rows, record_ids, residue_annotations, sequences, ann_position):
     annotation_rows = defaultdict(list)
     active_rows = defaultdict(dict)
 
@@ -260,7 +294,7 @@ def render_text_alignment(body, rows, domain_annotations, min_rows, record_ids, 
 
         aa = "".join(sequence[x] for sequence in sequences)
 
-        if min_rows > 0 and len(aa) - aa.count("-") < min_rows: continue
+        skip_this_column = min_rows > 0 and len(aa) - aa.count("-") < min_rows
 
         colors = alignment.assign_colors(aa)
 
@@ -326,10 +360,13 @@ def render_text_alignment(body, rows, domain_annotations, min_rows, record_ids, 
             if c: classes.append(c[0])
 
             if a != "-":
-                if anns[y] is not None:
-                    ann = anns[y][current_ann_position]
+                for annotations in residue_annotations[y]:
+                    ann = annotations[current_ann_position]
                     if ann not in (".-"): classes.append("a"+ann)
-                    ann_position[y] += 1
+                ann_position[y] += 1
+
+            if skip_this_column:
+                continue
 
             if classes:
                 row.append("<span class='%s'>%s</span>" % (" ".join(classes),a))
