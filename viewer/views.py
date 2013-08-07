@@ -4,6 +4,7 @@ import django.shortcuts
 
 import os
 import sys
+import re
 
 from collections import defaultdict
 
@@ -14,6 +15,7 @@ import newick
 import Taxonomy
 
 import urllib
+
 
 from sqlalchemy import create_engine
 
@@ -109,7 +111,7 @@ def index(request, path):
         if not os.path.exists(filename): continue
 
         for record in parseFasta(open(filename)):
-            if "." in record.id:
+            if re.match(r"\d+\.", record.id):
                 species = record.id.split(".", 1)[0]
                 items_per_species[species].append(record)
             else:
@@ -151,6 +153,8 @@ def index(request, path):
             if record.id in _residue_annotations:
                 residue_annotations.append(_residue_annotations[record.id])
             else:
+                print >> sys.stderr, "No annotation for", record.id
+
                 residue_annotations.append(None)
             sequences.append(record.seq)
             rows.append([])
@@ -175,13 +179,26 @@ def index(request, path):
     )
 
     if svg:
-        render_svg_alignment(body, rows, domain_annotations, min_rows, record_ids, residue_annotations, sequences, ann_position)
+        ncols = render_svg_alignment(body, rows, domain_annotations, min_rows, record_ids, residue_annotations, sequences, ann_position)
+
+        l = []
+        l.append("""<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width=800 height=20 preserveAspectRatio="none">""")
+
+        step = 200
+        for i in range(step, ncols, step):
+            x = int(i/ncols*800.0)
+            l.append('<text x="%d" y=15>%d</text>' % (x, i))
+            l.append("""<line x1="%d" y1="15" x2="%d" y2="20" style="stroke:rgb(0,0,0);stroke-width:2"/>""" % (x,x))
+
+        l.append("""</svg>""")
+
+        table_first_row = "\n".join(l)
+
     else:
         render_text_alignment(body, rows, domain_annotations, min_rows, record_ids, residue_annotations, sequences, ann_position)
+        ncols = len(rows[0])
+        table_first_row = "\n".join( ['<div class="hd1">1<br/>|</div>'] + [ '<div class="hd2">%d<br/>|</div>' % i for i in range(5, ncols, 5) ])
 
-    ncols = len(rows[0])
-
-    table_first_row = "\n".join( ['<div class="hd1">1<br/>|</div>'] + [ '<div class="hd2">%d<br/>|</div>' % i for i in range(5, ncols, 5) ])
     table_first_col = "\n".join(first_col)
     table_body = "".join(body)
     species_col = "\n".join(species_col)
@@ -244,11 +261,15 @@ def render_svg_alignment(body, rows, domain_annotations, min_rows, record_ids, r
 
     draw_on_top_rows = [ [] for _ in rows ]
 
+    cols = 0
+
     for x in range(max(len(sequence) for sequence in sequences)):
 
         aa = "".join( (sequence[x] if x < len(sequence) else "-") for sequence in sequences)
 
         if min_rows > 0 and len(aa) - aa.count("-") < min_rows: continue
+
+        cols += 1
 
         for y,(row,draw_on_top,a) in enumerate(zip(rows,draw_on_top_rows,aa)):
 
@@ -282,6 +303,8 @@ def render_svg_alignment(body, rows, domain_annotations, min_rows, record_ids, r
         body.append("".join(row))
         body.append("".join(draw_on_top))
         body.append("""</svg><br/>\n""")
+
+    return cols
 
 
 
@@ -360,9 +383,12 @@ def render_text_alignment(body, rows, domain_annotations, min_rows, record_ids, 
             if c: classes.append(c[0])
 
             if a != "-":
-                for annotations in residue_annotations[y]:
-                    ann = annotations[current_ann_position]
-                    if ann not in (".-"): classes.append("a"+ann)
+
+                if residue_annotations[y] != None:
+                    for annotations in residue_annotations[y]:
+                        ann = annotations[current_ann_position]
+                        if ann not in (".-"): classes.append("a"+ann)
+
                 ann_position[y] += 1
 
             if skip_this_column:
