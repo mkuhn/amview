@@ -36,14 +36,35 @@
 .ag { opacity: 0.5673;  }
 .aP { color: magenta;  }
 
-.alignment { font-family: Consolas,'Lucida Sans Typewriter','Courier New',monospace;line-height:105%; }
+.alignment { font-family: Consolas,'Lucida Sans Typewriter','Courier New',monospace;line-height:105%; overflow: scroll; }
 
 #topleft { position:fixed;overflow: hidden;height:1.4em;width:20em;left:0px;top:0px;background:white;z-index:2;padding:0.3em 0;text-align:right }
 #toggle_species { padding: 0.3 em;}
 #firstrow { position:fixed;overflow: hidden;height:1.4em;left:20em;top:0px;background:white;z-index:1;padding:0.3em 0; }
-#firstcol { position:fixed;overflow: hidden;height:100%;left:0px;top:2em;background:white;z-index:1;padding:0px 5px }
+#firstcol { position:fixed;overflow: hidden;height:100%;left:0px;top:2em;background:white;z-index:1;padding:0px 5px;max-width: 15em; white-space: nowrap; z-index: 3;}
 #speciescol { position:fixed;overflow: hidden;height:100%;left:20em;top:2em;background:white;z-index:1;padding:0px 5px;display:none; }
 #table_div { position:absolute;left:20em;top:2em;white-space:nowrap; }
+#amview_hint { display:none; z-index: 2; position: fixed; background:white; padding-right: 0.5em }
+#overview { position: fixed; left:0; bottom: 0; width: 500px; background:white; }
+#overviewfloat { position: fixed; left:0; bottom: 0; width: 100px; background:red; opacity: 0.5; }
+
+::-webkit-scrollbar {
+    width:8px;
+    height:8px;
+    -webkit-border-radius: 4px;
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-track-piece {
+    background-color:transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background-color: rgba(053, 057, 071, 0.3);
+    width: 6px;
+    height: 6px;
+    -webkit-border-radius:4px;
+}
 </style>
 <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.8.3/jquery.min.js"></script>
 <script>
@@ -51,24 +72,28 @@
 var ls = 0;
 var lt = 0;
 
+var isDragging = false;
+var prevX = 0;
+
 //function to support scrolling of title and first column
 fnScroll = function(){
-  var sl = $(window).scrollLeft();
-  if (sl > 0 && ls == 0) { $('#firstcol').addClass("shadow"); $('#speciescol').addClass("shadow");  ls = 1; }
-  if (sl == 0 && ls > 0) { $('#firstcol').removeClass("shadow"); $('#speciescol').removeClass("shadow"); ls = 0; }
+	var sl = $(window).scrollLeft();
+	if (sl > 0 && ls == 0) { $('#firstcol').addClass("shadow"); $('#speciescol').addClass("shadow");  ls = 1; }
+	if (sl == 0 && ls > 0) { $('#firstcol').removeClass("shadow"); $('#speciescol').removeClass("shadow"); ls = 0; }
 
-  var st = $(window).scrollTop();
-  if (st > 0 && lt == 0) { $('#firstrow').addClass("shadow"); lt = 1; }
-  if (st == 0 && lt > 0) { $('#firstrow').removeClass("shadow"); lt = 0; }
+	var st = $(window).scrollTop();
+	if (st > 0 && lt == 0) { $('#firstrow').addClass("shadow"); lt = 1; }
+	if (st == 0 && lt > 0) { $('#firstrow').removeClass("shadow"); lt = 0; }
 
-  var offset = $('#table_div').offset();
-  offset.top = st;
-  $('#firstrow').offset(offset);
-  offset = $('#table_div').offset();
-  offset.left = sl;
-  $('#firstcol').offset(offset);
+	var offset = $('#table_div').offset();
+	offset.top = st;
+	$('#firstrow').offset(offset);
+	offset = $('#table_div').offset();
+	offset.left = sl;
+	$('#firstcol').offset(offset);
 	offset.left += $('#firstcol').outerWidth();
 	$('#speciescol').offset(offset);
+	$("#amview_hint").hide()
 };
 
 fnShiftBody = function() {
@@ -78,27 +103,28 @@ fnShiftBody = function() {
 	for (var i in elements)
 	{
 		var el = elements[i];
-	  var offset = el.offset();
+		var offset = el.offset();
 		offset.left = fw;
-	  el.offset(offset);
+		el.offset(offset);
 
-	  if (i == 0)
-	  {
+		if (i == 0)
+		{
 			if ( $("#speciescol").is(":visible") ) fw += $("#speciescol").outerWidth();
-	  }
+		}
 	}
 
-  $("#topleft").width(fw);
+	$("#topleft").width(fw);
 
 	fnScroll();
 }
 
 fnSetHeaderCSS = function() {
-  var w = $("#table_div").width() / {{ ncols }};
-  $(".hd1").width(4*w);
-  $(".hd2").width(5*w);
-  $("#firstcol").height($("#table_div").height());
-  $("#speciescol").height($("#table_div").height());
+	var w = $("#table_div").width() / {{ ncols }};
+	$(".hd1").width(4*w);
+	$(".hd2").width(5*w);
+	$("#firstcol").height($("#table_div").height()+$("#overview").height());
+	$("#speciescol").height($("#table_div").height());
+	$("#overview").width( $(window).width() );
 	fnShiftBody();
 };
 
@@ -115,12 +141,28 @@ hideSpecies = function() {
 }
 
 $(document).ready(function(){
-  $(window).scroll(fnScroll);
-  fnSetHeaderCSS();
-  $("#table_div").resize( fnSetHeaderCSS );
+	$(window).scroll(fnScroll);
+	fnSetHeaderCSS();
+	$("#table_div").resize( fnSetHeaderCSS );
 	hideSpecies();
-});
 
+	$("span.record_id").mouseenter(
+		function () { $("#amview_hint").show().text( $(this).text() ).offset( $(this).offset() ) }
+	);
+
+	$("#amview_hint").mouseleave(
+		function () { $("#amview_hint").hide() }
+	);
+
+	$("#overview").click(
+		function(event) {
+			var sl = (event.pageX - $(this).offset().left ) * $("#table_div").width() / $(window).width() - $(window).width()/2 + $("#table_div").offset().left;
+ 			if (sl < 0) sl = 0;
+			$(window).scrollLeft(sl);
+	} );
+
+
+});
 
 </script>
 </head>
@@ -133,14 +175,18 @@ $(document).ready(function(){
 		{{ table_first_row|safe }}
 	</div>
 	<div id="firstcol">
-	  {{ table_first_col|safe }}
+		{{ table_first_col|safe }}
 	</div>
 	<div id="speciescol">
-	  {{ species_col|safe }}
+		{{ species_col|safe }}
 	</div>
 	<div id="table_div">
-			{{ table_body|safe }}
+		{{ table_body|safe }}
 	</div>
+	<div id="amview_hint"></div>
+</div>
+<div id="overview" title="Protein conservation score: Click to scroll">
+{{ overview|safe }}
 </div>
 
 </body>

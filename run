@@ -1,1 +1,2 @@
- /opt/local/bin/python2.7 manage.py  runserver
+/usr/bin/env python manage.py runserver 0.0.0.0:8041
+# /opt/local/bin/python2.7 manage.py  runserver

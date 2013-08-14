@@ -16,8 +16,11 @@ import Taxonomy
 
 import urllib
 
+from conservation import conservationScore
 
 from sqlalchemy import create_engine
+
+assert os.path.exists("ncbi_taxonomy.db") and os.path.getsize("ncbi_taxonomy.db") > 0, "Could not find NCBI Taxonomy database"
 
 tax = Taxonomy.Taxonomy(create_engine('sqlite:///ncbi_taxonomy.db'), Taxonomy.ncbi.ranks)
 
@@ -145,7 +148,7 @@ def index(request, path):
         for record in sorted( items_per_species[species], key=lambda(x) : len(x.seq) ):
 
             record_ids.append(record.id)
-            first_col.append("""%s<br />""" % record.id)
+            first_col.append("""<span class='record_id'>%s</span><br />""" % record.id)
             if species:
                 _species = tax.primary_from_id(species)
                 __species = urllib.quote(_species)
@@ -178,6 +181,8 @@ def index(request, path):
         ("S", "red", 736,736),
     )
 
+    overview = []
+
     if svg:
         ncols = render_svg_alignment(body, rows, domain_annotations, min_rows, record_ids, residue_annotations, sequences, ann_position)
 
@@ -195,16 +200,17 @@ def index(request, path):
         table_first_row = "\n".join(l)
 
     else:
-        render_text_alignment(body, rows, domain_annotations, min_rows, record_ids, residue_annotations, sequences, ann_position)
+        cons_scores = render_text_alignment(body, rows, domain_annotations, min_rows, record_ids, residue_annotations, sequences, ann_position)
         ncols = len(rows[0])
         table_first_row = "\n".join( ['<div class="hd1">1<br/>|</div>'] + [ '<div class="hd2">%d<br/>|</div>' % i for i in range(5, ncols, 5) ])
+        render_svg_conservation(overview, cons_scores)
+        ncol = len(cons_scores)
+
 
     table_first_col = "\n".join(first_col)
     table_body = "".join(body)
     species_col = "\n".join(species_col)
-
-    # no-op to make pylint happier
-    (table_body, table_first_row, table_first_col)
+    overview = "\n".join(overview)
 
     return django.shortcuts.render_to_response('viewer.html', locals())
 
@@ -308,16 +314,38 @@ def render_svg_alignment(body, rows, domain_annotations, min_rows, record_ids, r
 
 
 
+def render_svg_conservation(body, cons_scores):
+
+    body.append("""<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width=100%% height=10 viewBox="0 0 %d 10" preserveAspectRatio="none" id="overviewcanvas">""" % len(cons_scores))
+    body.append("""  <defs>
+        <style type="text/css"><![CDATA[
+          line {
+            stroke: grey;
+            stroke-width: 1
+          }
+        ]]></style>
+  </defs>""")
+
+    for x, c in enumerate(cons_scores):
+        if c:
+            body.append("""<line x1="%d" y1="%d" x2="%d" y2="10"/>""" %(x,10-c,x))
+
+    body.append("""</svg>\n""")
+
 
 def render_text_alignment(body, rows, domain_annotations, min_rows, record_ids, residue_annotations, sequences, ann_position):
     annotation_rows = defaultdict(list)
     active_rows = defaultdict(dict)
+    cons_scores = []
 
     for x in range(len(sequences[0])):
 
         aa = "".join(sequence[x] for sequence in sequences)
 
         skip_this_column = min_rows > 0 and len(aa) - aa.count("-") < min_rows
+
+        if not skip_this_column:
+            cons_scores.append( conservationScore(aa) )
 
         colors = alignment.assign_colors(aa)
 
@@ -404,8 +432,17 @@ def render_text_alignment(body, rows, domain_annotations, min_rows, record_ids, 
         for annotation_row in annotation_rows.get(record_id, ()):
             rows.append(annotation_row)
 
+    row = []
+    for c in cons_scores:
+        a = "-"
+#        row.append("<span class='c%d'>%s</span>" % (c,a))
+        row.append("<span>%s</span>" % (c if c < 10 else ":"))
+
+    rows.append(row)
+
     for row in rows:
         body.append("".join(row)+"<br/>\n")
         # body.append("<tr>"+"".join(row)+"</tr>\n")
 
+    return cons_scores
 
