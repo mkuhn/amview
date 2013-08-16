@@ -316,19 +316,24 @@ def render_svg_alignment(body, rows, domain_annotations, min_rows, record_ids, r
 
 def render_svg_conservation(body, cons_scores):
 
-    body.append("""<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width=100%% height=10 viewBox="0 0 %d 10" preserveAspectRatio="none" id="overviewcanvas">""" % len(cons_scores))
+    n = len(cons_scores)
+    body.append("""<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width=100%% height=20px viewBox="0 0 %d 20" preserveAspectRatio="none" id="overviewcanvas">""" % n)
     body.append("""  <defs>
         <style type="text/css"><![CDATA[
           line {
-            stroke: grey;
+            stroke: #333;
             stroke-width: 1
           }
         ]]></style>
   </defs>""")
 
+
+    body.append("""<line x1="0" y1="0" x2="%d" y2="0" style="stroke: #777"/>""" % n)
+    body.append("""<line x1="0" y1="10" x2="%d" y2="10" style="stroke: #ccc"/>""" % n)
+
     for x, c in enumerate(cons_scores):
         if c:
-            body.append("""<line x1="%d" y1="%d" x2="%d" y2="10"/>""" %(x,10-c,x))
+            body.append("""<line x1="%d" y1="%d" x2="%d" y2="20"/>""" %(x,20-2*c,x))
 
     body.append("""</svg>\n""")
 

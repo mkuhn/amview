@@ -46,7 +46,6 @@
 #table_div { position:absolute;left:20em;top:2em;white-space:nowrap; }
 #amview_hint { display:none; z-index: 2; position: fixed; background:white; padding-right: 0.5em }
 #overview { position: fixed; left:0; bottom: 0; width: 500px; background:white; }
-#overviewfloat { position: fixed; left:0; bottom: 0; width: 100px; background:red; opacity: 0.5; }
 
 ::-webkit-scrollbar {
     width:8px;
@@ -143,7 +142,7 @@ hideSpecies = function() {
 $(document).ready(function(){
 	$(window).scroll(fnScroll);
 	fnSetHeaderCSS();
-	$("#table_div").resize( fnSetHeaderCSS );
+	$(window).resize( fnSetHeaderCSS );
 	hideSpecies();
 
 	$("span.record_id").mouseenter(
