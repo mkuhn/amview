@@ -2,14 +2,16 @@
 
 import os
 
-DEBUG = True
+DEBUG = False
 TEMPLATE_DEBUG = DEBUG
 
 ADMINS = (
-    # ('Your Name', 'your_email@domain.com'),
+    ('Michael Kuhn', 'michael.kuhn@gmail.com'),
 )
 
 MANAGERS = ADMINS
+
+ALLOWED_HOSTS = [ 'djangosrv', '.tu-dresden.de' ]
 
 DATABASE_ENGINE = ''           # 'postgresql_psycopg2', 'postgresql', 'mysql', 'sqlite3' or 'oracle'.
 DATABASE_NAME = ''             # Or path to database file if using sqlite3.
@@ -93,4 +95,5 @@ ANNOTATION_FILES = ("paircoil.fa",)
 
 ## Load local settings that don't belong in revision control:
 ## TEMPLATE_DIRS, ALIGNMENT_PATH, ALIGNMENT_FILES, ANNOTATION_FILES
+os.chdir("/srv/app/src/amview/")
 execfile("local_settings.py") 

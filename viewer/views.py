@@ -20,6 +20,7 @@ from conservation import conservationScore
 
 from sqlalchemy import create_engine
 
+os.chdir("/srv/app/src/amview")
 assert os.path.exists("ncbi_taxonomy.db") and os.path.getsize("ncbi_taxonomy.db") > 0, "Could not find NCBI Taxonomy database"
 
 tax = Taxonomy.Taxonomy(create_engine('sqlite:///ncbi_taxonomy.db'), Taxonomy.ncbi.ranks)
