@@ -1,6 +1,7 @@
 from __future__ import division
 
 import django.shortcuts
+from django.http import HttpResponse
 
 import os
 import sys
@@ -76,6 +77,23 @@ class CollectLeafs(newick.tree.TreeVisitor):
 
     def get_leafs(self):
         return self.leafs[0]
+
+
+def fasta(request, path):
+
+    # load only one multiple alignment
+    for filename in settings.ALIGNMENT_FILES:
+
+        filename = settings.ALIGNMENT_PATH + path + filename
+        if not os.path.exists(filename): continue
+
+        response = HttpResponse(open(filename), content_type='text/plain')
+        response['Content-Disposition'] = 'attachment; filename="%s.fasta"' % path.replace("/", "")
+
+        return response
+
+    else:
+        print >> sys.stderr, "Not found", filename
 
 
 def index(request, path):

@@ -13,6 +13,18 @@ MANAGERS = ADMINS
 
 ALLOWED_HOSTS = [ 'djangosrv', '.tu-dresden.de' ]
 
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
+        'LOCATION': '/tmp/django_cache',
+        'OPTIONS': {
+            'MAX_ENTRIES': 10000
+        }
+
+    }
+}
+
+
 DATABASE_ENGINE = ''           # 'postgresql_psycopg2', 'postgresql', 'mysql', 'sqlite3' or 'oracle'.
 DATABASE_NAME = ''             # Or path to database file if using sqlite3.
 DATABASE_USER = ''             # Not used with sqlite3.
@@ -35,7 +47,7 @@ SITE_ID = 1
 
 # If you set this to False, Django will make some optimizations so as not
 # to load the internationalization machinery.
-USE_I18N = True
+USE_I18N = False
 
 # Absolute path to the directory that holds media.
 # Example: "/home/media/media.lawrence.com/"
@@ -59,10 +71,15 @@ TEMPLATE_LOADERS = ('django.template.loaders.filesystem.Loader',
  'django.template.loaders.app_directories.Loader')
 
 MIDDLEWARE_CLASSES = (
+    'django.middleware.cache.UpdateCacheMiddleware',
     'django.middleware.common.CommonMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
+#    'django.contrib.sessions.middleware.SessionMiddleware',
+#    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django.middleware.cache.FetchFromCacheMiddleware',
 )
+
+CACHE_MIDDLEWARE_SECONDS = 86400 # 30 *
+CACHE_MIDDLEWARE_KEY_PREFIX = "A1"
 
 ROOT_URLCONF = 'amview.urls'
 
@@ -87,13 +104,13 @@ INSTALLED_APPS = (
 # Base path of alignments, all alignments need to be below this path
 ALIGNMENT_PATH = os.getcwd()+"/examples/"
 
-# How are the alignment and annotation files called? 
+# How are the alignment and annotation files called?
 # When the user specifies a directory (URL ending in "/"), these filenames
-# will be checked and loaded if they're there. 
+# will be checked and loaded if they're there.
 ALIGNMENT_FILES = ("alignment.fa",)
 ANNOTATION_FILES = ("paircoil.fa",)
 
 ## Load local settings that don't belong in revision control:
 ## TEMPLATE_DIRS, ALIGNMENT_PATH, ALIGNMENT_FILES, ANNOTATION_FILES
 os.chdir("/srv/app/src/amview/")
-execfile("local_settings.py") 
+execfile("local_settings.py")
