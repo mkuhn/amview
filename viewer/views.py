@@ -85,6 +85,8 @@ def fasta(request, path):
     for filename in settings.ALIGNMENT_FILES:
 
         filename = settings.ALIGNMENT_PATH + path + filename
+        filename = settings.MODIFY_PATH(filename)
+
         if not os.path.exists(filename): continue
 
         response = HttpResponse(open(filename), content_type='text/plain')
@@ -116,6 +118,8 @@ def index(request, path):
     for filename in settings.ANNOTATION_FILES:
 
         filename = settings.ALIGNMENT_PATH + path + filename
+        filename = settings.MODIFY_PATH(filename)
+
         if not os.path.exists(filename): continue
 
         if "gps.txt" in filename:
@@ -130,6 +134,8 @@ def index(request, path):
     for filename in settings.ALIGNMENT_FILES:
 
         filename = settings.ALIGNMENT_PATH + path + filename
+        filename = settings.MODIFY_PATH(filename)
+
         if not os.path.exists(filename): continue
 
         for record in parseFasta(open(filename)):

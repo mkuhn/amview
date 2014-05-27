@@ -2,7 +2,7 @@
 
 import os
 
-DEBUG = False
+DEBUG = not False
 TEMPLATE_DEBUG = DEBUG
 
 ADMINS = (
@@ -103,6 +103,9 @@ INSTALLED_APPS = (
 
 # Base path of alignments, all alignments need to be below this path
 ALIGNMENT_PATH = os.getcwd()+"/examples/"
+
+# A function to modify path names, if the public URL structure doesn't match the file system structure
+MODIFY_PATH = lambda x : x
 
 # How are the alignment and annotation files called?
 # When the user specifies a directory (URL ending in "/"), these filenames
