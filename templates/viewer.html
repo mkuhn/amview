@@ -39,13 +39,15 @@
 .alignment { font-family: Consolas,'Lucida Sans Typewriter','Courier New',monospace;line-height:105%; overflow: scroll; }
 
 #topleft { position:fixed;overflow: hidden;height:1.4em;width:20em;left:0px;top:0px;background:white;z-index:2;padding:0.3em 0;text-align:right }
+#topleftfix { position:fixed;overflow: hidden;height:1.4em;width:1.4em;left:0px;top:0px;background:white;z-index:3;padding:0.3em 0.3em;font-size:200% }
+#options { position:fixed;left:0px;top:1.4em;background:#ddd;z-index:20;padding:0.3em 0.3em;display: none }
 #toggle_species { padding: 0.3 em;}
 #firstrow { position:fixed;overflow: hidden;height:1.4em;left:20em;top:0px;background:white;z-index:1;padding:0.3em 0; }
 #firstcol { position:fixed;overflow: hidden;height:100%;left:0px;top:2em;background:white;z-index:1;padding:0px 5px;max-width: 15em; white-space: nowrap; z-index: 3;}
 #speciescol { position:fixed;overflow: hidden;height:100%;left:20em;top:2em;background:white;z-index:1;padding:0px 5px;display:none; }
 #table_div { position:absolute;left:20em;top:2em;white-space:nowrap; }
 #amview_hint { display:none; z-index: 2; position: fixed; background:white; padding-right: 0.5em }
-#overview { position: fixed; left:0; bottom: 0; width: 500px; background:white; }
+#overview { position: fixed; left:0; bottom: 0; width: 500px; background:white; z-index: 10;}
 
 ::-webkit-scrollbar {
     width:8px;
@@ -65,7 +67,7 @@
     -webkit-border-radius:4px;
 }
 </style>
-<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.8.3/jquery.min.js"></script>
+<script src="http://code.jquery.com/jquery-2.1.1.min.js"></script>
 <script>
 
 var ls = 0;
@@ -160,6 +162,11 @@ $(document).ready(function(){
 			$(window).scrollLeft(sl);
 	} );
 
+	$("#topleftfix").mouseenter( function () { $("#options").show() } );
+	$("#topleft").mouseenter( function () { $("#options").hide() } );
+	$("#options").mouseleave( function () { $("#options").hide() } );
+
+
 
 });
 
@@ -168,7 +175,13 @@ $(document).ready(function(){
 
 <body>
 <div class="alignment">
+	<div id="topleftfix"><span id="toggle_options">&#9881;</span></div>
 	<div id="topleft"><span id="toggle_species"></span></div>
+	<div id="options"><form method="get">Minimum number of sequences per column:<br/>
+		<input type="number" min="1" max="{{ nrows }}" name="min_rows" value="{{ min_rows }}"><br/>
+		<input type="submit" value="Submit"/>
+		</form>
+	</div>
 	<div id="firstrow">
 		{{ table_first_row|safe }}
 	</div>

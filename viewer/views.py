@@ -49,7 +49,7 @@ def parseFasta(fh):
             record_id = line[1:].split()[0]
             record_seq = []
         else:
-            record_seq.append(line)
+            record_seq.append(line.replace("*", "-"))
 
     if record_seq:
         yield Record(record_id, "".join(record_seq))
@@ -102,7 +102,18 @@ def index(request, path):
 
     assert path.endswith("/")
 
-    min_rows = int(request.REQUEST.get("min_rows", 0))
+    min_rows = request.REQUEST.get("min_rows", "1")
+
+    if min_rows.isdigit():
+        min_rows = int(min_rows)
+    else:
+        min_rows = 1
+
+    if min_rows < 1:
+        min_rows = 1
+
+
+
     svg = int(request.REQUEST.get("svg", 0))
 
     first_col = []
@@ -208,6 +219,9 @@ def index(request, path):
 
     overview = []
 
+    if min_rows > len(rows):
+        min_rows = len(rows)
+
     if svg:
         ncols = render_svg_alignment(body, rows, domain_annotations, min_rows, record_ids, residue_annotations, sequences, ann_position)
 
@@ -236,6 +250,7 @@ def index(request, path):
     table_body = "".join(body)
     species_col = "\n".join(species_col)
     overview = "\n".join(overview)
+    nrows = len(rows)
 
     return django.shortcuts.render_to_response('viewer.html', locals())
 

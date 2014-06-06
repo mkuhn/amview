@@ -19,8 +19,8 @@ CACHES = {
         'LOCATION': '/tmp/django_cache',
         'OPTIONS': {
             'MAX_ENTRIES': 10000
-        }
-
+        },
+        'VERSION' : 2,
     }
 }
 
