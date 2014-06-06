@@ -112,7 +112,20 @@ def index(request, path):
     if min_rows < 1:
         min_rows = 1
 
+    min_cols = request.REQUEST.get("min_cols", "0")
 
+    if min_cols.isdigit():
+        min_cols = int(min_cols)
+    else:
+        min_cols = 0
+
+    if min_cols > 100:
+        min_cols = 100
+
+    min_cols_int = min_cols
+    min_cols = 0.01*min_cols
+
+    non_standard_settings = min_cols_int != 0 or min_rows != 1
 
     svg = int(request.REQUEST.get("svg", 0))
 
@@ -221,6 +234,32 @@ def index(request, path):
 
     if min_rows > len(rows):
         min_rows = len(rows)
+
+    if min_cols > 0:
+
+        counts_per_sequence = [0] * len(sequences)
+
+        for x in range(len(sequences[0])):
+            aa = "".join(sequence[x] for sequence in sequences)
+            if min_rows > 0 and len(aa) - aa.count("-") < min_rows:
+                continue
+
+            for i, a in enumerate(aa):
+                if a != "-":
+                    counts_per_sequence[i] += 1
+
+        req_count = min_cols * max(counts_per_sequence)
+
+        rows = [ x for (x, count) in zip(rows, counts_per_sequence) if count >= req_count ]
+        sequences = [ x for (x, count) in zip(sequences, counts_per_sequence) if count >= req_count ]
+        record_ids = [ x for (x, count) in zip(record_ids, counts_per_sequence) if count >= req_count ]
+        residue_annotations = [ x for (x, count) in zip(residue_annotations, counts_per_sequence) if count >= req_count ]
+        species_col = [ x for (x, count) in zip(species_col, counts_per_sequence) if count >= req_count ]
+        first_col = [ x for (x, count) in zip(first_col, counts_per_sequence) if count >= req_count ]
+
+    if min_rows > len(rows):
+        min_rows = len(rows)
+
 
     if svg:
         ncols = render_svg_alignment(body, rows, domain_annotations, min_rows, record_ids, residue_annotations, sequences, ann_position)

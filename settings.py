@@ -13,16 +13,17 @@ MANAGERS = ADMINS
 
 ALLOWED_HOSTS = [ 'djangosrv', '.tu-dresden.de' ]
 
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
-        'LOCATION': '/tmp/django_cache',
-        'OPTIONS': {
-            'MAX_ENTRIES': 10000
-        },
-        'VERSION' : 2,
+if not DEBUG:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
+            'LOCATION': '/tmp/django_cache',
+            'OPTIONS': {
+                'MAX_ENTRIES': 10000
+            },
+            'VERSION' : 3,
+        }
     }
-}
 
 
 DATABASE_ENGINE = ''           # 'postgresql_psycopg2', 'postgresql', 'mysql', 'sqlite3' or 'oracle'.
