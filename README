@@ -1,6 +1,8 @@
 amview -- annotated multiple sequence alignment viewer
 
-You can install this Django app on your web server to provide online access to multiple sequence alignments. Through external files, you can add annotations, e.g. to highlight coiled-coil residues, protein domains or  interaction motifs.
+You can install this Django app on your web server to provide online access to multiple sequence alignments.
+Through external files, you can add annotations, e.g. to highlight coiled-coil residues, protein domains 
+or interaction motifs.
 
 REQUIREMENTS
 ============
